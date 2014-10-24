@@ -10,6 +10,7 @@
     using NServiceBus.Logging;
     using NServiceBus;
     using NServiceBus.Persistence;
+    using NServiceBus.AcceptanceTesting;
 
     /// <summary>
     /// Serves as a template for the NServiceBus configuration of an endpoint.
@@ -18,22 +19,35 @@
     /// </summary>
     public class DefaultServer : IEndpointSetupTemplate
     {
-        public Configure GetConfiguration(RunDescriptor runDescriptor, EndpointConfiguration endpointConfiguration, IConfigurationSource configSource)
+        public BusConfiguration GetConfiguration(RunDescriptor runDescriptor, EndpointConfiguration endpointConfiguration, IConfigurationSource configSource, Action<BusConfiguration> configurationBuilderCustomization)
         {
             var settings = runDescriptor.Settings;
 
             var types = GetTypesToUse(endpointConfiguration);
 
-            var config = Configure.With(o =>
-            {
-                o.EndpointName(endpointConfiguration.EndpointName);
-                o.TypesToScan(types);
-                o.CustomConfigurationSource(configSource);
-            });
+            var config = new BusConfiguration();
+            config.EndpointName(endpointConfiguration.EndpointName);
+            config.TypesToScan(types);
+            config.CustomConfigurationSource(configSource);
+            config.UsePersistence<InMemoryPersistence>();
+            config.PurgeOnStartup(true);
 
             // Plugin a behavior that listens for subscription messages
             config.Pipeline.Register<SubscriptionBehavior.Registration>();
-            config.Configurer.ConfigureComponent<SubscriptionBehavior>(DependencyLifecycle.InstancePerCall);
+            config.RegisterComponents(c => c.ConfigureComponent<SubscriptionBehavior>(DependencyLifecycle.InstancePerCall));
+            
+            // Important: you need to make sure that the correct ScenarioContext class is available to your endpoints and tests
+            config.RegisterComponents(r =>
+            {
+                r.RegisterSingleton(runDescriptor.ScenarioContext.GetType(), runDescriptor.ScenarioContext);
+                r.RegisterSingleton(typeof(ScenarioContext), runDescriptor.ScenarioContext);
+            });
+
+            // Call extra custom action if provided
+            if (configurationBuilderCustomization != null)
+            {
+                configurationBuilderCustomization(config);
+            }
 
             return config;
         }

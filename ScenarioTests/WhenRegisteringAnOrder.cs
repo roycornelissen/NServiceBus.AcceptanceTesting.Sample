@@ -20,7 +20,8 @@ namespace ScenarioTests
         [TestMethod]
         public void Order_of_500_should_be_accepted_and_shipped()
         {
-            Scenario.Define(() => new Context { })
+            var ctx = new Context();
+            Scenario.Define(ctx)
                 .WithEndpoint<Sales>(b => 
                     b.Given((bus, context) =>
                         // The SubscriptionBehavior will monitor for incoming subscription messages
@@ -52,7 +53,8 @@ namespace ScenarioTests
         [TestMethod]
         public void Order_under_500_should_be_accepted_and_shipped()
         {
-            Scenario.Define(() => new Context { })
+            var ctx = new Context();
+            Scenario.Define(ctx)
                 .WithEndpoint<Sales>(b =>
                     b.Given((bus, context) =>
                         // The SubscriptionBehavior will monitor for incoming subscription messages
@@ -84,7 +86,8 @@ namespace ScenarioTests
         [TestMethod]
         public void Order_over_500_should_be_refused_and_not_shipped()
         {
-            Scenario.Define(() => new Context { })
+            var ctx = new Context();
+            Scenario.Define(ctx)
                 .WithEndpoint<Sales>(b =>
                     b.Given((bus, context) =>
                         // The SubscriptionBehavior will monitor for incoming subscription messages
@@ -134,21 +137,21 @@ namespace ScenarioTests
 
             class ShippingInspector : IMutateOutgoingMessages, INeedInitialization
             {
-                public Context TestContext { get; set; }
+                public Context Context { get; set; }
 
                 public object MutateOutgoing(object message)
                 {
                     if (message is OrderShipped)
                     {
-                        TestContext.OrderIsShipped = true;
+                        Context.OrderIsShipped = true;
                     }
 
                     return message;
                 }
 
-                public void Init(Configure config)
+                public void Customize(BusConfiguration configuration)
                 {
-                    config.Configurer.ConfigureComponent<ShippingInspector>(DependencyLifecycle.InstancePerCall);
+                    configuration.RegisterComponents(c => c.ConfigureComponent<ShippingInspector>(DependencyLifecycle.InstancePerCall));
                 }
             }
         }
@@ -164,26 +167,26 @@ namespace ScenarioTests
 
             class SalesInspector : IMutateOutgoingMessages, INeedInitialization
             {
-                public Context TestContext { get; set; }
+                public Context Context { get; set; }
 
                 public object MutateOutgoing(object message)
                 {
                     if (message is OrderAccepted)
                     {
-                        TestContext.OrderIsAccepted = true;
+                        Context.OrderIsAccepted = true;
                     }
 
                     if (message is OrderRefused)
                     {
-                        TestContext.OrderIsRefused = true;
+                        Context.OrderIsRefused = true;
                     }
 
                     return message;
                 }
 
-                public void Init(Configure config)
+                public void Customize(BusConfiguration configuration)
                 {
-                    config.Configurer.ConfigureComponent<SalesInspector>(DependencyLifecycle.InstancePerCall);
+                    configuration.RegisterComponents(c => c.ConfigureComponent<SalesInspector>(DependencyLifecycle.InstancePerCall));
                 }
             }
         }
